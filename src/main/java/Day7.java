@@ -1,3 +1,5 @@
+import java.text.NumberFormat;
+import java.util.HashMap;
 import java.util.List;
 
 public class Day7
@@ -167,15 +169,19 @@ public class Day7
 .^.^.^.^.^.....^.^.^.^.^.^.^.^.^.^.....^.^...^.^.^.^.^.^...^.^...^.^.^.^.^...^...^...^...^.^.^.^.^.^...^.^.^.^.^.^.^.^...^.^.^.^.^.^.^.....^.
 .............................................................................................................................................
            """;
+
     private List<char[]> array;
     private int width;
     private int height;
 
+    record Pos(int row, int col) {};
+
     public static void main(String[] args)
     {
         Day7 event = new Day7();
-        event.solvePart1();
+        //event.solvePart1();
         //event.solvePart2();
+        event.solvePart2();
     }
 
     private void solvePart1()
@@ -233,5 +239,41 @@ public class Day7
 
     private void solvePart2()
     {
+        array = input.lines().map(String::trim).map(String::toCharArray).toList();
+        width = array.get(0).length;
+        height = array.size();
+
+        System.out.println("height, width = " + height + "x" + width);
+
+        long timelines = 0;
+        for (int col = 0; col < width; col++) {
+            if (getChar(0, col) == 'S') {
+                timelines = 1L + timelines(1, col);
+            }
+        }
+
+        System.out.println("Number of timelines: " + timelines + " = " + NumberFormat.getNumberInstance().format(timelines));
+    }
+
+    HashMap<Pos, Long> nodeTotals = new HashMap<>();
+
+    private long timelines(int row, int col)
+    {
+        if (row >= height) {
+            return 0;
+        }
+        if (getChar(row, col) == '^') {
+            Long total = nodeTotals.get(new Pos(row, col));
+            if (total != null) {
+                // already calculated total for the node, reuse it
+                return total;
+            } else {
+                total = 1L + timelines(row + 1, col - 1) + timelines(row + 1, col + 1);
+                nodeTotals.put(new Pos(row, col), total);
+                return total;
+            }
+        } else {
+            return timelines(row + 1, col);
+        }
     }
 }
