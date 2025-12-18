@@ -2,8 +2,24 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+
 public class Day9
 {
+    static final String example = """
+..............
+.......#...#..
+..............
+..#....#......
+..............
+..#......#....
+..............
+.........#.#..
+..............
+            """;
+
+
     static final String testInput = """
 7,1
 11,1
@@ -13,6 +29,7 @@ public class Day9
 2,5
 2,3
 7,3
+7,1
     """;
 
     static String input = """
@@ -512,6 +529,7 @@ public class Day9
 97833,49140
 97618,49140
 97618,50351
+98214,50351
             """;
 
     public static void main(String[] args)
@@ -519,101 +537,187 @@ public class Day9
         Day9 event = new Day9();
         //event.solvePart1();
         event.solvePart2();
+
+        // 1529675217 is correct answer
     }
 
-    record Position(long x, long y) {}
+    public record Position(long x, long y) {}
 
-    static class Pair {
-        Position p1;
-        Position p2;
-        long area;
+    static class Box
+    {
+        Position a;
+        Position b;
 
-        public Pair(Position p1, Position p2) {
-            this.p1 = p1;
-            this.p2 = p2;
-            this.area = (Math.abs(p2.x - p1.x) + 1) * (Math.abs(p2.y - p1.y) + 1);
+        public long area;
+
+        public Box(Position a, Position b) {
+            this.a = a;
+            this.b = b;
+            this.area = (Math.abs(b.x - a.x) + 1) * (Math.abs(b.y - a.y) + 1);
         }
 
         @Override
         public String toString()
         {
-            return p1 + " - " + p2 + "; area: " + area;
+            return a + " - " + b + "; area: " + area;
         }
     }
 
-    List<Pair> pairs = new ArrayList<>();
+    List<Box> boxes = new ArrayList<>();
 
     private void solvePart1()
     {
-        List<Position> table = input.lines()
+        List<Position> polygon = input.lines()
                                         .map(s -> s.split(","))
                                         .map(a -> new Position(Long.parseLong(a[0]), Long.parseLong(a[1])))
                                         .toList();
-        //table.forEach(System.out::println);
+        //polygon.forEach(System.out::println);
 
-        for (int i=0; i < table.size(); i++) {
-            for (int j = i + 1; j < table.size(); j++) {
-                pairs.add(new Pair(table.get(i), table.get(j)));
+        for (int i=0; i < polygon.size(); i++) {
+            for (int j = i + 1; j < polygon.size(); j++) {
+                boxes.add(new Box(polygon.get(i), polygon.get(j)));
             }
         }
 
         // sort on area
-        pairs.sort(Comparator.comparingLong(p -> -p.area));
+        boxes.sort(Comparator.comparingLong(p -> -p.area));
 
         //System.out.println("Pairs (sorted):");
         //pairs.forEach(System.out::println);
 
-        System.out.println("Largest area: " + pairs.getFirst());
+        System.out.println("Largest area: " + boxes.getFirst());
     }
+
+
+
 
     private void solvePart2()
     {
-        List<Position> table = input.lines()
-                                    .map(s -> s.split(","))
-                                    .map(a -> new Position(Long.parseLong(a[0]), Long.parseLong(a[1])))
-                                    .toList();
-        //table.forEach(System.out::println);
-        int minX = (int) table.stream().map(Position::x).reduce(Math::min).get().longValue();
-        int minY = (int) table.stream().map(Position::y).reduce(Math::min).get().longValue();
-        int maxX = (int) table.stream().map(Position::x).reduce(Math::max).get().longValue();
-        int maxY = (int) table.stream().map(Position::y).reduce(Math::max).get().longValue();
+        List<Position> polygon = input.lines()
+                                          .map(s -> s.split(","))
+                                          .map(a -> new Position(Long.parseLong(a[0]), Long.parseLong(a[1])))
+                                          .toList();
+        //polygon.forEach(System.out::println);
+        int minX = (int) polygon.stream().map(Position::x).reduce(Math::min).get().longValue();
+        int minY = (int) polygon.stream().map(Position::y).reduce(Math::min).get().longValue();
+        int maxX = (int) polygon.stream().map(Position::x).reduce(Math::max).get().longValue();
+        int maxY = (int) polygon.stream().map(Position::y).reduce(Math::max).get().longValue();
 
         System.out.println("min coord: " + minX + "," + minY);
         System.out.println("max coord: " + maxX + "," + maxY);
 
-        List<Pair> connectedPairs = new ArrayList<>();
+        // Create list of all possible a and b boxes
+        for (int i = 0; i < polygon.size(); i++) {
+            for (int j = i + 1; j < polygon.size(); j++) {
+                boxes.add(new Box(polygon.get(i), polygon.get(j)));
+            }
+        }
 
-        for (int i=0; i < table.size(); i++) {
-            for (int j = i + 1; j < table.size(); j++) {
-                Position p1 = table.get(i);
-                Position p2 = table.get(j);
-                Pair pair = new Pair(p1, p2);
-                pairs.add(pair);
-                if (p1.x == p2.x || p1.y == p2.y) {
-                    connectedPairs.add(pair);
+        // sort the boxes on area, biggest area first
+        boxes.sort(Comparator.comparingLong(p -> -p.area));
+        System.out.println("Number of possible boxes: " + boxes.size());
+
+        Box maxBox = null;
+
+        label1:
+        for (Box box : boxes) {
+            System.out.println("New box: " + box);
+            Position a = box.a;
+            Position b = box.b;
+            for (int i = 0; i < polygon.size() - 1; i++) {
+                Position c = polygon.get(i);
+                Position d = polygon.get(i + 1);
+
+                if (c.equals(a) || c.equals(b) || d.equals(a) || d.equals(b)) {
+                    continue;
+                }
+                if (doCross(a, b, c, d)) {
+                    System.out.println("Crossing detected");
+                    System.out.printf("a = %s, b = %s, c = %s, d = %s, i = %d%n", a, b, c, d, i);
+                    continue label1;
+                }
+            }
+
+            // Check that the opposite corners of a and b are inside the polygon
+            Position p1 = new Position(a.x, b.y);
+            Position p2 = new Position(b.x, a.y);
+            if (isNotInsidePolygon(p1, polygon) || isNotInsidePolygon(p2, polygon)) {
+                System.out.println("## One of the opposite corners is not inside polygon!");
+                continue;
+            }
+
+            // No crossings found, we found our max box!
+            maxBox = box;
+            break;
+        }
+
+        System.out.println("Largest area: " + maxBox);
+    }
+
+    // Check if the line between c and d crosses the box between a and b
+    private boolean doCross(Position a, Position b, Position c, Position d)
+    {
+        return doCross(a.x, b.x, c.x, d.x) && doCross(a.y, b.y, c.y, d.y);
+    }
+
+    private boolean doCross(long a, long b, long c, long d)
+    {
+        // Check if any of c or d is between a and b, that means it crosses
+        if ((a < c && c < b) && (a < d && d < b)) {
+            return true;
+        }
+
+        // now, check no crossing line between a and b
+        // if both c and d is above or beneath the box of a and b then they do not cross ti box
+        if (c <= min(a, b) && d <= min(a, b) || c >= max(a, b) && d >= max(a, b)) {
+            // the line between c and d do not cross
+            return false;
+        };
+        return true;
+    }
+
+    // This method uses a ray casting algorithm. The number of times an edge line is hit is counted.
+    // If the number is odd, the position is inside the polygon, otherwise it is outside.
+    private boolean isNotInsidePolygon(Position p, List<Position> polygon) {
+        int crossings = 0;
+        int n = polygon.size();
+
+        for (int i = 0; i < n - 1; i++) {
+            long x1 = polygon.get(i).x;
+            long y1 = polygon.get(i).y;
+            long x2 = polygon.get(i + 1).x;
+            long y2 = polygon.get(i + 1).y;
+
+            // Check if point is exactly on the edge
+            if (isOnSegment(p, polygon.get(i), polygon.get(i + 1))) {
+                return false; // Point is on edge, so it's inside
+            }
+
+            // Ray casting: cast a ray from p to the right and count crossings
+            if ((y1 <= p.y && p.y < y2) || (y2 <= p.y && p.y < y1)) {
+                // Calculate x-coordinate of intersection with horizontal ray at p.y
+                double xIntersect = x1 + (double)(p.y - y1) / (y2 - y1) * (x2 - x1);
+                if (xIntersect > p.x) {
+                    crossings++;
                 }
             }
         }
-
-        connectedPairs.forEach(System.out::println);
-        System.out.println("Number of pairs: " + pairs.size());
-        System.out.println("Number of connected pairs: " + connectedPairs.size());
-
-        List<Pair> validPairs = new ArrayList<>();
-
-        for (Pair pair : pairs) {
-            if (valid(pair, connectedPairs)) {
-                validPairs.add(pair);
-            }
-        }
-
-
-        //System.out.println("Largest area: " + pairs.getFirst());
+        return (crossings % 2) != 1;
     }
 
-    private boolean valid(Pair pair, List<Pair> connectedPairs)
-    {
-        //for (int x = pair.p1.x; x >
-        return true;
+    private boolean isOnSegment(Position p, Position a, Position b) {
+        // Check if p is on the line segment from a to b
+        long minX = Math.min(a.x, b.x);
+        long maxX = Math.max(a.x, b.x);
+        long minY = Math.min(a.y, b.y);
+        long maxY = Math.max(a.y, b.y);
+
+        if (p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) {
+            return false;
+        }
+
+        // Check collinearity using cross product
+        long cross = (b.y - a.y) * (p.x - a.x) - (b.x - a.x) * (p.y - a.y);
+        return cross == 0;
     }
 }
