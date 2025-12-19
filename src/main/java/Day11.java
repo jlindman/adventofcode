@@ -1,9 +1,12 @@
+import org.w3c.dom.Node;
+
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Day11
 {
@@ -670,8 +673,8 @@ kov: vms you
     public static void main(String[] args) throws IOException
     {
         Day11 event = new Day11();
-        event.solvePart1();
-        //event.solvePart2();
+        //event.solvePart1();
+        event.solvePart2();
     }
 
     HashMap<String, List<String>> connections = new HashMap<>();
@@ -706,10 +709,93 @@ kov: vms you
         // This will return the number of paths between the "you" and "out" nodes
 
         // First answer: 724
-
-        // dac -> out : 3263
     }
 
+    private void solvePart2() throws IOException
+    {
+        // This is a graph, try to solve it with Neo4j graph database
+        input.lines().forEach(s -> {
+            String startNode = s.split(": ")[0];
+            if (!connections.containsKey(startNode)) {
+                connections.put(startNode, new ArrayList<>());
+            }
+
+            String[] endNodes = s.split(": ")[1].split(" ");
+            connections.get(startNode).addAll(List.of(endNodes));
+        });
+
+        connections.entrySet().forEach(System.out::println);
+
+        long total = 1;
+        //total = traverse("you", "out", new ArrayList<>()).pathCount;
+        //total = traverse("svr", "out", new ArrayList<>()).pathCount;
+
+        // Count the path between each and multiply them together
+        total *= traverse("svr", "fft").pathCount;
+        total *= traverse("fft", "dac").pathCount;
+        total *= traverse("dac", "out").pathCount;
+
+        System.out.println("Total number of paths: " + total);
+        // Answer: Total number of paths: 473930047491888
+    }
+
+    // For a node store the number of paths from the node and if the path is valid or not (reaches the end node).
+    record NodeInfo(String node, long pathCount, boolean valid) {};
+
+    Map<String, NodeInfo> nodeStore;
+
+    private NodeInfo traverse(String node, String endNode)
+    {
+        nodeStore = new HashMap<>();
+        return traverse(node, endNode, new ArrayList<>());
+    }
+
+    private NodeInfo traverse(String node, String endNode, List<String> visited)
+    {
+        // check for cycle
+        if (visited.contains(node)) {
+            System.out.println("already visited: " + node);
+            return new NodeInfo(node, 0, false);
+        }
+        visited.add(node);
+
+        // already handled?
+        if (nodeStore.containsKey(node)) {
+            return nodeStore.get(node);
+        }
+
+        // end node found?
+        if (endNode.equals(node)) {
+            NodeInfo nodeInfo = new NodeInfo(node, 1, true);
+            return nodeInfo;
+        }
+
+        // loop children
+        var children = connections.get(node);
+        if (children == null) {
+            // A leaf node, give up
+            NodeInfo nodeInfo = new NodeInfo(node,0, false);
+            this.nodeStore.put(node, nodeInfo);
+            return nodeInfo;
+        }
+
+        long total = 0;
+        boolean anyValid = false;
+        for (var child : children) {
+            List<String> visitedSoFar = new ArrayList<>(visited);
+            NodeInfo nodeInfo = traverse(child, endNode, visitedSoFar);
+            if (nodeInfo.valid) {
+                total += nodeInfo.pathCount;
+                anyValid = true;
+            }
+        }
+
+        NodeInfo nodeInfo = new NodeInfo(node, total, anyValid);
+        this.nodeStore.put(node, nodeInfo);
+        return nodeInfo;
+    }
+
+    // Used in part 1
     private void createDbScript() throws IOException
     {
         try (PrintWriter writer = new PrintWriter(new FileWriter("/tmp/neo4j-import/nodes.cypher"))) {
